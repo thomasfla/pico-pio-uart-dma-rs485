@@ -1,0 +1,32 @@
+.program rs485
+.side_set 1 opt
+
+    ; Load the value of n (number of bytes to transmit) into the y register
+    pull
+    mov y, osr
+mainloop:
+
+    ; If y is zero, we are done transmitting
+    jmp y-- exit  [0]
+
+    ; Assert stop bit, or stall with line in idle state
+    pull       side 1 [7]  
+    
+    ; Preload bit counter, assert start bit for 8 clocks
+    set x, 7   side 0 [7]  
+    
+bitloop:  
+    ; This loop will run 8 times (8n1 UART)
+    
+    ; Shift 1 bit from OSR to the first OUT pin
+    out pins, 1            
+    
+    ; Each loop iteration is 8 cycles.
+    jmp x-- bitloop   [6]  
+    
+    ; Go back to main loop to transmit next byte
+    jmp mainloop [0]
+
+exit:
+    ; Terminate the program
+    nop
