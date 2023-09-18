@@ -5,22 +5,18 @@
 
 .program rs485
 .side_set 2 opt
-    nop       side 3 [3]    ;side 0b11 (oe=1 tx=1) IDLE a bit.. 
-    pull block              ; Read the first byte, indicating the number of bytes to read +1 ; This can't come from the DMA as in 8 bit mode it will repeate it fill 32bits.
+    nop        side 3 [3]   ; side 0b11 (oe=1 tx=1) IDLE a bit.. 
+    pull block              ; Read the first byte, indicating the number of bytes to read +1 ; This can't come from the DMA as in 8 bit mode it will repeate it to fill 32bits.
     mov x, osr              ; Store it in "x" 
 bytesloop:
-    pull       side 2 [3]  ; Start bit   side 0b10 (oe=1 tx=0)
-    out pins, 1 [3]        ; bit 0 
-    out pins, 1 [3]      
-    out pins, 1 [3]     
-    out pins, 1 [3]
-    out pins, 1 [3]
-    out pins, 1 [3]
-    out pins, 1 [3]
-    out pins, 1 [3]        ; bit 7
-    nop       side 3 [2]   ; Stop bit  side 0b11 (oe=1 tx=1)
-    jmp x--, bytesloop
+    pull       side 2 [2]   ; Start bit   side 0b10 (oe=1 tx=0)
+    set y, 7
+bitsloop:
+    out pins, 1       [2]   ; bit 0..7
+    jmp y--, bitsloop       ; next bit
+    nop        side 3 [2]   ; Stop bit  side 0b11 (oe=1 tx=1)
+    jmp x--, bytesloop      ; next byte
 endtx:
-    nop       side 1 [3]  ; side 0b10 (oe=1 tx=0)
+    nop        side 1 [3]   ; side 0b10 (oe=1 tx=0)
     pull block
-    jmp endtx ;TODO, generate an iterupt to signal the end of transmission.
+    jmp endtx ;TODO, generate an interupt to signal the end of transmission.

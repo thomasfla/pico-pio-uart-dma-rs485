@@ -97,7 +97,7 @@ int main() {
         gpio_put(pin_debug, 1);
         send_packet_rs485(pio, sm,dma_channel,offset, data,len);
         gpio_put(pin_debug, 0);
-        sleep_us(300);
+        sleep_ms(300);
     }
 
 
