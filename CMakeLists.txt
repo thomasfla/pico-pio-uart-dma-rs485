@@ -23,5 +23,9 @@ pico_generate_pio_header(pico_pio_uart_dma_rs485 ${CMAKE_CURRENT_LIST_DIR}/rs485
 # Add pico_stdlib library which aggregates commonly used features
 target_link_libraries(pico_pio_uart_dma_rs485 pico_stdlib hardware_pio hardware_dma)
 
+# use USB Uart
+pico_enable_stdio_usb(pico_pio_uart_dma_rs485 1)
+pico_enable_stdio_uart(pico_pio_uart_dma_rs485 0)
+
 # create map/bin/hex/uf2 file in addition to ELF.
 pico_add_extra_outputs(pico_pio_uart_dma_rs485)

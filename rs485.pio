@@ -1,32 +1,26 @@
+;This program will send an uart frame and an output enable signal to drive a rs485 half duplex tranceiver for example;
+;The first word represent the length of the frame decreased by one.
+; i.e. to send the frame 0x1234 send 0x01 0x12 0x34          (len=2 -> 2-1=0x01)
+; i.e. to send the frame 0x123456 send 0x02 0x12 0x34 0x56   (len=3 -> 3-1=0x02)
+
 .program rs485
-.side_set 1 opt
-
-    ; Load the value of n (number of bytes to transmit) into the y register
-    pull
-    mov y, osr
-mainloop:
-
-    ; If y is zero, we are done transmitting
-    jmp y-- exit  [0]
-
-    ; Assert stop bit, or stall with line in idle state
-    pull       side 1 [7]  
-    
-    ; Preload bit counter, assert start bit for 8 clocks
-    set x, 7   side 0 [7]  
-    
-bitloop:  
-    ; This loop will run 8 times (8n1 UART)
-    
-    ; Shift 1 bit from OSR to the first OUT pin
-    out pins, 1            
-    
-    ; Each loop iteration is 8 cycles.
-    jmp x-- bitloop   [6]  
-    
-    ; Go back to main loop to transmit next byte
-    jmp mainloop [0]
-
-exit:
-    ; Terminate the program
-    nop
+.side_set 2 opt
+    nop       side 3 [3]    ;side 0b11 (oe=1 tx=1) IDLE a bit.. 
+    pull block              ; Read the first byte, indicating the number of bytes to read +1 ; This can't come from the DMA as in 8 bit mode it will repeate it fill 32bits.
+    mov x, osr              ; Store it in "x" 
+bytesloop:
+    pull       side 2 [3]  ; Start bit   side 0b10 (oe=1 tx=0)
+    out pins, 1 [3]        ; bit 0 
+    out pins, 1 [3]      
+    out pins, 1 [3]     
+    out pins, 1 [3]
+    out pins, 1 [3]
+    out pins, 1 [3]
+    out pins, 1 [3]
+    out pins, 1 [3]        ; bit 7
+    nop       side 3 [2]   ; Stop bit  side 0b11 (oe=1 tx=1)
+    jmp x--, bytesloop
+endtx:
+    nop       side 1 [3]  ; side 0b10 (oe=1 tx=0)
+    pull block
+    jmp endtx ;TODO, generate an iterupt to signal the end of transmission.
