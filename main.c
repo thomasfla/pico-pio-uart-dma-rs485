@@ -8,8 +8,6 @@
 #define pin_oe 3 //needs to be equal to pin_tx + 1 (this is because the PIO use sideset for TX and OE)
 #define pin_debug 5
 
-
-
 void send_packet_rs485(PIO pio, uint sm, int dma_channel, uint offset, uint8_t * data, uint8_t length)
 {
     if (length >0)
@@ -29,8 +27,8 @@ void send_packet_rs485(PIO pio, uint sm, int dma_channel, uint offset, uint8_t *
 
 int main() {
 
-    set_sys_clock_khz(100000,true);
-    const uint SERIAL_BAUD = 1000000;
+    set_sys_clock_khz(120000,true);
+    const uint SERIAL_BAUD = 12000000;
     stdio_init_all();
 
     gpio_init(pin_debug);
@@ -118,8 +116,4 @@ int main() {
         }
         sleep_ms(1);
     }
-
-
-
 }
-
