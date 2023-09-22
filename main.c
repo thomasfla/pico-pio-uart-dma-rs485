@@ -8,27 +8,33 @@
 #define pin_oe 3 //needs to be equal to pin_tx + 1 (this is because the PIO use sideset for TX and OE)
 #define pin_debug 5
 
-void send_packet_rs485(PIO pio, uint sm, int dma_channel, uint offset, uint8_t * data, uint8_t length)
+void send_packet_rs485(PIO pio, uint sm, int dma_channel_rx, int dma_channel_tx, uint offset, uint8_t * data_rx, uint8_t * data_tx, uint8_t length)
 {
     if (length >0)
     {
-        //Let's restart the SM
-        pio_sm_restart(pio, sm);
-        pio_sm_exec(pio, sm, pio_encode_jmp(offset));
+
         // send the length of transfer to the PIO
-        pio_sm_put_blocking(pio, sm, (uint32_t) (length -1));
+        //pio_sm_put_blocking(pio, sm, (uint32_t) (length -1));
         // send the time timeout for a stop listening for a response frame (TODO give a formula for this value)
-        pio_sm_put_blocking(pio, sm, (uint32_t) (0xffff));
+        //pio_sm_put_blocking(pio, sm, (uint32_t) (0xffff));
         //following is the frame data
-        dma_channel_transfer_from_buffer_now( dma_channel, data, length);
+        dma_channel_abort(dma_channel_tx);
+        //Let's restart the SM
+        
+        pio_sm_clear_fifos(pio, sm);   
+        pio_sm_restart(pio, sm);  
+        pio_sm_exec(pio, sm, pio_encode_jmp(offset));  
+        dma_channel_transfer_from_buffer_now(dma_channel_tx, data_tx, 4);
+        dma_channel_abort(dma_channel_rx);
+        dma_channel_transfer_to_buffer_now(dma_channel_rx, data_rx, 20);
     }
 }
 
 
 int main() {
 
-    set_sys_clock_khz(120000,true);
-    const uint SERIAL_BAUD = 12000000;
+    set_sys_clock_khz(100000,true);
+    const uint SERIAL_BAUD = 1000000;
     stdio_init_all();
 
     gpio_init(pin_debug);
@@ -58,6 +64,8 @@ int main() {
     
     // OUT shifts to right, no autopull
     sm_config_set_out_shift(&c, true, false, 32);
+   // OUT shifts to right, autopull 32
+    //sm_config_set_out_shift(&c, true, true, 32);
 
     // We are mapping both OUT and side-set to the same pin, because sometimes
     // we need to assert user data onto the pin (with OUT) and sometimes
@@ -78,33 +86,70 @@ int main() {
     pio_sm_init(pio, sm, offset, &c);
     pio_sm_set_enabled(pio, sm, true);
     
-    // Initialize DMA
-    char data[256] = {0};
-    data[0]=0x55;
-    data[1]=0x55;
-    data[2]=0x55;
-    int len = 10;
+    char data_rx[256] = {0};
+    int sizeof_rx = 256;
+    char data_tx[256] = {0};
 
-    int dma_channel = dma_claim_unused_channel(true);
-    dma_channel_config cfg = dma_channel_get_default_config(dma_channel);
+    data_tx[0]=0x05; //size of the data - 1 : 6-1=5
+    data_tx[1]=0x00; 
+    data_tx[2]=0x00; 
+    data_tx[3]=0x00;
 
-    channel_config_set_transfer_data_size(&cfg, DMA_SIZE_8);
-    channel_config_set_read_increment(&cfg, true);
-    channel_config_set_write_increment(&cfg, false);
-    channel_config_set_dreq(&cfg, pio_get_dreq(pio, sm, true)); //DMA wait for pio fifo_TX not to be full
+    data_tx[4]=0xff; //timeout
+    data_tx[5]=0xff; //timeout
+    data_tx[6]=0; //timeout
+    data_tx[7]=0; //timeout
+
+    data_tx[8]='U';
+    data_tx[9]='e';
+    data_tx[10]='l';
+    data_tx[11]='l';
+
+    data_tx[12]='o';
+    data_tx[13]='U';
+    data_tx[14]=0;
+    data_tx[15]=0;
+
+
+  
+
+    // Initialize DMA TX
+    int dma_channel_tx = dma_claim_unused_channel(true);
+    dma_channel_config cfg_tx = dma_channel_get_default_config(dma_channel_tx);
+    channel_config_set_transfer_data_size(&cfg_tx, DMA_SIZE_32);
+    channel_config_set_read_increment(&cfg_tx, true);
+    channel_config_set_write_increment(&cfg_tx, false);
+    channel_config_set_dreq(&cfg_tx, pio_get_dreq(pio, sm, true)); //DMA wait for pio fifo_TX not to be full
     dma_channel_configure(
-        dma_channel, &cfg,
+        dma_channel_tx, &cfg_tx,
         &pio->txf[sm],  // Destination pointer
-        data,           // Source pointer
-        len+1,          // Number of transfers
+        data_tx,        // Source pointer
+        4,          // Number of transfers
         false           // do not Start immediately
     );
+
+    // Initialize DMA RX
+    int dma_channel_rx = dma_claim_unused_channel(true);
+    dma_channel_config cfg_rx = dma_channel_get_default_config(dma_channel_rx);
+    channel_config_set_transfer_data_size(&cfg_rx, DMA_SIZE_32);
+    channel_config_set_read_increment(&cfg_rx, false);
+    channel_config_set_write_increment(&cfg_rx, true);
+    channel_config_set_dreq(&cfg_rx, pio_get_dreq(pio, sm, false)); //DMA wait for pio fifo_RX not to be full
+    dma_channel_configure(
+        dma_channel_rx, &cfg_rx,
+        data_rx,         // Destination pointer
+        &pio->rxf[sm],   // Source pointer
+        sizeof_rx,       // Number of transfers
+        false            // do not Start immediately
+    );
+
+
     while (true) {
 
         gpio_put(pin_debug, 1); //to check that the CPU is free durring transfer
-        send_packet_rs485(pio, sm, dma_channel,offset, data,len);
+        send_packet_rs485(pio, sm, dma_channel_rx, dma_channel_tx, offset, data_rx, data_tx, 4);
         gpio_put(pin_debug, 0);
-        if (pio_sm_get_rx_fifo_level(pio,sm))
+        /*if (pio_sm_get_rx_fifo_level(pio,sm))
         {
             printf("in the fifo:");
             while (pio_sm_get_rx_fifo_level(pio,sm))
@@ -113,7 +158,14 @@ int main() {
             }
             printf("\r\n");
 
+        }*/
+        
+        printf("dataRX:");
+        for (int i = 0 ;i<20;i++)
+        {
+            printf("%02x ",data_rx[i]);
         }
-        sleep_ms(1);
+        printf("\r\n");
+        sleep_ms(10);
     }
 }
