@@ -20,7 +20,7 @@ void send_packet_rs485(PIO pio, uint sm, int dma_channel_rx, int dma_channel_tx,
         //following is the frame data
         dma_channel_abort(dma_channel_tx);
         //Let's restart the SM
-        
+
         pio_sm_clear_fifos(pio, sm);   
         pio_sm_restart(pio, sm);  
         pio_sm_exec(pio, sm, pio_encode_jmp(offset));  
@@ -33,8 +33,8 @@ void send_packet_rs485(PIO pio, uint sm, int dma_channel_rx, int dma_channel_tx,
 
 int main() {
 
-    set_sys_clock_khz(100000,true);
-    const uint SERIAL_BAUD = 1000000;
+    set_sys_clock_khz(120000,true);
+    const uint SERIAL_BAUD = 12000000;
     stdio_init_all();
 
     gpio_init(pin_debug);
@@ -93,12 +93,12 @@ int main() {
     data_tx[0]=0x05; //size of the data - 1 : 6-1=5
     data_tx[1]=0x00; 
     data_tx[2]=0x00; 
-    data_tx[3]=0x00;
+    data_tx[3]=0x00; 
 
     data_tx[4]=0xff; //timeout
     data_tx[5]=0xff; //timeout
-    data_tx[6]=0; //timeout
-    data_tx[7]=0; //timeout
+    data_tx[6]=0xff; //timeout
+    data_tx[7]=0xff; //timeout
 
     data_tx[8]='U';
     data_tx[9]='e';
@@ -146,26 +146,16 @@ int main() {
 
     while (true) {
 
-        gpio_put(pin_debug, 1); //to check that the CPU is free durring transfer
-        send_packet_rs485(pio, sm, dma_channel_rx, dma_channel_tx, offset, data_rx, data_tx, 4);
-        gpio_put(pin_debug, 0);
-        /*if (pio_sm_get_rx_fifo_level(pio,sm))
-        {
-            printf("in the fifo:");
-            while (pio_sm_get_rx_fifo_level(pio,sm))
-            {
-                printf("%4x ",pio_sm_get_blocking(pio,sm));
-            }
-            printf("\r\n");
-
-        }*/
-        
         printf("dataRX:");
         for (int i = 0 ;i<20;i++)
         {
             printf("%02x ",data_rx[i]);
         }
+        printf("RX DMA transfer_count = %d", dma_channel_hw_addr(dma_channel_rx)->transfer_count);
         printf("\r\n");
+        gpio_put(pin_debug, 1); //to check that the CPU is free durring transfer
+        send_packet_rs485(pio, sm, dma_channel_rx, dma_channel_tx, offset, data_rx, data_tx, 4);
+        gpio_put(pin_debug, 0);
         sleep_ms(10);
     }
 }
