@@ -1,0 +1,9 @@
+EESchema-DOCLIB  Version 2.0
+#
+$CMP THVD2450DRBR
+D Texas Instruments ??70-V fault-protected 3.3-V to 5-V RS-485 transceiver with IEC ESD 8-SON -40 to 125
+K
+F https://www.ti.com/lit/ds/symlink/thvd2450.pdf?ts=1608497440801&ref_url=https%253A%252F%252Fwww.ti.com%252Fproduct%252FTHVD2450
+$ENDCMP
+#
+#End Doc Library

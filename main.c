@@ -74,12 +74,8 @@ int main() {
     sm_config_set_in_pins(&c, pin_rx);
     sm_config_set_sideset_pins(&c, pin_tx); 
     sm_config_set_jmp_pin(&c, pin_rx);
-
-    // We only need TX, so get an 8-deep FIFO!
-    //sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_TX);
-    //no, keep the fifo TX and RX
     sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_NONE);
-    // SM transmits 1 bit per 4 execution cycles.
+    // SM transmits 1 bit per 8 execution cycles.
     float div = (float)clock_get_hz(clk_sys) / (8 * baud);
     sm_config_set_clkdiv(&c, div);
 
