@@ -3,10 +3,27 @@
 #include "hardware/dma.h"
 #include "hardware/clocks.h"
 #include "rs485.pio.h"
-#define pin_rx 1
-#define pin_tx 2
-#define pin_oe 3 //needs to be equal to pin_tx + 1 (this is because the PIO use sideset for TX and OE)
-#define pin_debug 5
+
+#define pin_tx0 0
+#define pin_oe0 1 //needs to be equal to pin_tx + 1 (this is because the PIO use sideset for TX and OE)
+#define pin_rx0 2
+/*
+#define pin_tx1 3
+#define pin_oe1 4 //needs to be equal to pin_tx + 1 (this is because the PIO use sideset for TX and OE)
+#define pin_rx1 5
+
+#define pin_tx2 6
+#define pin_oe2 7 //needs to be equal to pin_tx + 1 (this is because the PIO use sideset for TX and OE)
+#define pin_rx2 8
+
+#define pin_tx2 9
+#define pin_oe2 10 //needs to be equal to pin_tx + 1 (this is because the PIO use sideset for TX and OE)
+#define pin_rx2 11
+*/
+#define pin_debug 12
+
+
+
 
 void send_packet_rs485(PIO pio, uint sm, int dma_channel_rx, int dma_channel_tx, uint offset, uint8_t * data_rx, uint8_t * data_tx, uint8_t length)
 {
@@ -21,7 +38,7 @@ void send_packet_rs485(PIO pio, uint sm, int dma_channel_rx, int dma_channel_tx,
         dma_channel_abort(dma_channel_tx);
         //Let's restart the SM
 
-        pio_sm_clear_fifos(pio, sm);   
+        pio_sm_clear_fifos(pio, sm);  
         pio_sm_restart(pio, sm);  
         pio_sm_exec(pio, sm, pio_encode_jmp(offset));  
         dma_channel_transfer_from_buffer_now(dma_channel_tx, data_tx, 4);
@@ -50,14 +67,14 @@ int main() {
     uint baud = SERIAL_BAUD;
     // Tell PIO to initially drive output-high on the selected pin, then map PIO
     // onto that pin with the IO muxes.
-    pio_sm_set_pins_with_mask(pio, sm,    1u<<pin_rx | 1u<<pin_tx | 1u<<pin_oe , 1u<<pin_rx | 1u<<pin_tx | 1u<<pin_oe); 
-    pio_sm_set_pindirs_with_mask(pio, sm, 0u<<pin_rx | 1u<<pin_tx | 1u<<pin_oe , 1u<<pin_rx | 1u<<pin_tx | 1u<<pin_oe);
+    pio_sm_set_pins_with_mask(pio, sm,    1u<<pin_rx0 | 1u<<pin_tx0 | 1u<<pin_oe0 , 1u<<pin_rx0 | 1u<<pin_tx0 | 1u<<pin_oe0); 
+    pio_sm_set_pindirs_with_mask(pio, sm, 0u<<pin_rx0 | 1u<<pin_tx0 | 1u<<pin_oe0 , 1u<<pin_rx0 | 1u<<pin_tx0 | 1u<<pin_oe0);
 
-    pio_gpio_init(pio, pin_tx);
-    pio_gpio_init(pio, pin_oe);
-    pio_gpio_init(pio, pin_rx);
+    pio_gpio_init(pio, pin_tx0);
+    pio_gpio_init(pio, pin_oe0);
+    pio_gpio_init(pio, pin_rx0);
     
-    hw_set_bits(&pio->input_sync_bypass, 1u << pin_rx);
+    hw_set_bits(&pio->input_sync_bypass, 1u << pin_rx0);
 
     uint offset = pio_add_program(pio, &rs485_program);
     pio_sm_config c = rs485_program_get_default_config(offset);
@@ -70,10 +87,10 @@ int main() {
     // We are mapping both OUT and side-set to the same pin, because sometimes
     // we need to assert user data onto the pin (with OUT) and sometimes
     // assert constant values (start/stop bit)
-    sm_config_set_out_pins(&c, pin_tx, 1);
-    sm_config_set_in_pins(&c, pin_rx);
-    sm_config_set_sideset_pins(&c, pin_tx); 
-    sm_config_set_jmp_pin(&c, pin_rx);
+    sm_config_set_out_pins(&c, pin_tx0, 1); //out for TX
+    sm_config_set_in_pins(&c, pin_rx0);
+    sm_config_set_sideset_pins(&c, pin_tx0); 
+    sm_config_set_jmp_pin(&c, pin_rx0);
     sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_NONE);
     // SM transmits 1 bit per 8 execution cycles.
     float div = (float)clock_get_hz(clk_sys) / (8 * baud);
@@ -96,18 +113,16 @@ int main() {
     data_tx[6]=0xff; //timeout
     data_tx[7]=0xff; //timeout
 
-    data_tx[8]='U';
+    data_tx[8]='H';
     data_tx[9]='e';
     data_tx[10]='l';
     data_tx[11]='l';
 
     data_tx[12]='o';
-    data_tx[13]='U';
-    data_tx[14]=0;
+    data_tx[13]='!';
+    data_tx[14]=0;  //This is padding, It will not be sent
     data_tx[15]=0;
 
-
-  
 
     // Initialize DMA TX
     int dma_channel_tx = dma_claim_unused_channel(true);
