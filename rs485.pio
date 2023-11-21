@@ -1,4 +1,4 @@
-; Thomas Flayols - LAAS CNRS 2023
+;Thomas Flayols - LAAS CNRS 2023
 ;This program will send an uart frame and an output enable signal to drive a rs485 
 ;half duplex tranceiver, It then wait for a response for a setable period of time. 
 ;
@@ -29,8 +29,6 @@ bitsloop:
 ; RX part ____________________________________________________________________________________________
 ; For debuging the sampling with an oscilloscope, we can use the TX pin as a sampling indication by adding set side1/0 
     mov x, isr     side 0b01 [3] ; Prepare timeout cpt for start of frame (prevoiously stored in ISR by reading word 2) side (oe=0 tx=1)
-    ;set y, 0
-    ;mov isr, y  ; clear isr
 waitforstart:
     jmp x--, notimeout 
     jmp timeout 

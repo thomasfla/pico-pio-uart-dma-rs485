@@ -15,8 +15,9 @@ pico_sdk_init()
 
 # rest of your project
 add_executable(pico_pio_uart_dma_rs485
-    main.c
+    main.c rs485_lib.c
 )
+
 
 pico_generate_pio_header(pico_pio_uart_dma_rs485 ${CMAKE_CURRENT_LIST_DIR}/rs485.pio)
 

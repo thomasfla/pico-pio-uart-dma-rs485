@@ -1,8 +1,10 @@
 #include "pico/stdlib.h"
+#include <stdio.h>
+
 #include "hardware/pio.h"
 #include "hardware/dma.h"
 #include "hardware/clocks.h"
-#include "rs485.pio.h"
+#include "rs485_lib.h"
 
 #define pin_tx0 0
 #define pin_oe0 1 //needs to be equal to pin_tx + 1 (this is because the PIO use sideset for TX and OE)
@@ -22,32 +24,6 @@
 */
 #define pin_debug 12
 
-
-
-
-void send_packet_rs485(PIO pio, uint sm, int dma_channel_rx, int dma_channel_tx, uint offset, uint8_t * data_rx, uint8_t * data_tx, uint8_t length)
-{
-    if (length >0)
-    {
-
-        // send the length of transfer to the PIO
-        //pio_sm_put_blocking(pio, sm, (uint32_t) (length -1));
-        // send the time timeout for a stop listening for a response frame (TODO give a formula for this value)
-        //pio_sm_put_blocking(pio, sm, (uint32_t) (0xffff));
-        //following is the frame data
-        dma_channel_abort(dma_channel_tx);
-        //Let's restart the SM
-
-        pio_sm_clear_fifos(pio, sm);  
-        pio_sm_restart(pio, sm);  
-        pio_sm_exec(pio, sm, pio_encode_jmp(offset));  
-        dma_channel_transfer_from_buffer_now(dma_channel_tx, data_tx, 4);
-        dma_channel_abort(dma_channel_rx);
-        dma_channel_transfer_to_buffer_now(dma_channel_rx, data_rx, 20);
-    }
-}
-
-
 int main() {
 
     set_sys_clock_khz(120000,true);
@@ -61,48 +37,22 @@ int main() {
 
     printf("In the main\n");
 
-    // Initialize PIO
-    PIO pio = pio0;
-    uint sm = 0;
-    uint baud = SERIAL_BAUD;
-    // Tell PIO to initially drive output-high on the selected pin, then map PIO
-    // onto that pin with the IO muxes.
-    pio_sm_set_pins_with_mask(pio, sm,    1u<<pin_rx0 | 1u<<pin_tx0 | 1u<<pin_oe0 , 1u<<pin_rx0 | 1u<<pin_tx0 | 1u<<pin_oe0); 
-    pio_sm_set_pindirs_with_mask(pio, sm, 0u<<pin_rx0 | 1u<<pin_tx0 | 1u<<pin_oe0 , 1u<<pin_rx0 | 1u<<pin_tx0 | 1u<<pin_oe0);
-
-    pio_gpio_init(pio, pin_tx0);
-    pio_gpio_init(pio, pin_oe0);
-    pio_gpio_init(pio, pin_rx0);
+    //Configure RS485 for channel 0
+    RS485_Config rs485Config;
+    rs485Config.pio = pio0;  // PIO instance
+    rs485Config.sm = 0;      // State machine index
+    rs485Config.tx_pin = pin_tx0;  // TX pin
+    rs485Config.oe_pin = pin_oe0;  // OE pin
+    rs485Config.rx_pin = pin_rx0;  // RX pin
+    rs485Config.baud_rate = SERIAL_BAUD;  // Baud rate
+    uint8_t data_rx[256] = {0};
+    uint8_t data_tx[256] = {0};
+    rs485Config.data_rx = data_rx;
+    rs485Config.data_tx = data_tx;
+    rs485Config.buffer_size_rx = sizeof(data_rx);
+    rs485Config.buffer_size_tx = sizeof(data_tx);
+    rs485_init(&rs485Config);
     
-    hw_set_bits(&pio->input_sync_bypass, 1u << pin_rx0);
-
-    uint offset = pio_add_program(pio, &rs485_program);
-    pio_sm_config c = rs485_program_get_default_config(offset);
-    
-    // OUT shifts to right, no autopull
-    sm_config_set_out_shift(&c, true, false, 32);
-   // OUT shifts to right, autopull 32
-    //sm_config_set_out_shift(&c, true, true, 32);
-
-    // We are mapping both OUT and side-set to the same pin, because sometimes
-    // we need to assert user data onto the pin (with OUT) and sometimes
-    // assert constant values (start/stop bit)
-    sm_config_set_out_pins(&c, pin_tx0, 1); //out for TX
-    sm_config_set_in_pins(&c, pin_rx0);
-    sm_config_set_sideset_pins(&c, pin_tx0); 
-    sm_config_set_jmp_pin(&c, pin_rx0);
-    sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_NONE);
-    // SM transmits 1 bit per 8 execution cycles.
-    float div = (float)clock_get_hz(clk_sys) / (8 * baud);
-    sm_config_set_clkdiv(&c, div);
-
-    pio_sm_init(pio, sm, offset, &c);
-    pio_sm_set_enabled(pio, sm, true);
-    
-    char data_rx[256] = {0};
-    int sizeof_rx = 256;
-    char data_tx[256] = {0};
-
     data_tx[0]=0x05; //size of the data - 1 : 6-1=5
     data_tx[1]=0x00; 
     data_tx[2]=0x00; 
@@ -114,46 +64,11 @@ int main() {
     data_tx[7]=0xff; //timeout
 
     data_tx[8]='H';
-    data_tx[9]='e';
+    data_tx[9]='e'; 
     data_tx[10]='l';
     data_tx[11]='l';
-
     data_tx[12]='o';
     data_tx[13]='!';
-    data_tx[14]=0;  //This is padding, It will not be sent
-    data_tx[15]=0;
-
-
-    // Initialize DMA TX
-    int dma_channel_tx = dma_claim_unused_channel(true);
-    dma_channel_config cfg_tx = dma_channel_get_default_config(dma_channel_tx);
-    channel_config_set_transfer_data_size(&cfg_tx, DMA_SIZE_32);
-    channel_config_set_read_increment(&cfg_tx, true);
-    channel_config_set_write_increment(&cfg_tx, false);
-    channel_config_set_dreq(&cfg_tx, pio_get_dreq(pio, sm, true)); //DMA wait for pio fifo_TX not to be full
-    dma_channel_configure(
-        dma_channel_tx, &cfg_tx,
-        &pio->txf[sm],  // Destination pointer
-        data_tx,        // Source pointer
-        4,          // Number of transfers
-        false           // do not Start immediately
-    );
-
-    // Initialize DMA RX
-    int dma_channel_rx = dma_claim_unused_channel(true);
-    dma_channel_config cfg_rx = dma_channel_get_default_config(dma_channel_rx);
-    channel_config_set_transfer_data_size(&cfg_rx, DMA_SIZE_32);
-    channel_config_set_read_increment(&cfg_rx, false);
-    channel_config_set_write_increment(&cfg_rx, true);
-    channel_config_set_dreq(&cfg_rx, pio_get_dreq(pio, sm, false)); //DMA wait for pio fifo_RX not to be full
-    dma_channel_configure(
-        dma_channel_rx, &cfg_rx,
-        data_rx,         // Destination pointer
-        &pio->rxf[sm],   // Source pointer
-        sizeof_rx,       // Number of transfers
-        false            // do not Start immediately
-    );
-
 
     while (true) {
 
@@ -162,10 +77,10 @@ int main() {
         {
             printf("%02x ",data_rx[i]);
         }
-        printf("RX DMA transfer_count = %d", dma_channel_hw_addr(dma_channel_rx)->transfer_count);
+        printf("RX DMA transfer_count = %d", dma_channel_hw_addr(rs485Config.dma_channel_rx)->transfer_count);
         printf("\r\n");
         gpio_put(pin_debug, 1); //to check that the CPU is free durring transfer
-        send_packet_rs485(pio, sm, dma_channel_rx, dma_channel_tx, offset, data_rx, data_tx, 4);
+        send_packet_rs485(&rs485Config);
         gpio_put(pin_debug, 0);
         sleep_ms(10);
     }
