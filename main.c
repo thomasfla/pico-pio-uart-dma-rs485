@@ -54,7 +54,7 @@ int main() {
     rs485_init(&rs485Config);
     
     uint8_t* str = "Hello World!\r\n";
-    // Using construct_packet_rs485 imply a strcpy, for efficient sending, we can also directly write in data_tx+8, len in data+0 timeout in data+4
+    // Using construct_packet_rs485 imply a strcpy, for efficient sending, we could also directly write in data_tx+8, len in data+0 timeout in data+4
     construct_packet_rs485(&rs485Config,str,strlen(str));
     while (true) {
 
