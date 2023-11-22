@@ -5,7 +5,7 @@
 #include "hardware/dma.h"
 #include "hardware/clocks.h"
 #include "rs485_lib.h"
-
+#include <string.h>
 #define pin_tx0 0
 #define pin_oe0 1 //needs to be equal to pin_tx + 1 (this is because the PIO use sideset for TX and OE)
 #define pin_rx0 2
@@ -53,7 +53,9 @@ int main() {
     rs485Config.buffer_size_tx = sizeof(data_tx);
     rs485_init(&rs485Config);
     
-    data_tx[0]=0x05; //size of the data - 1 : 6-1=5
+    uint8_t* str = "Hello World!";
+    construct_packet_rs485(&rs485Config,str,strlen(str));
+/*     data_tx[0]=0x05; //size of the data - 1 : 6-1=5
     data_tx[1]=0x00; 
     data_tx[2]=0x00; 
     data_tx[3]=0x00; 
@@ -68,7 +70,7 @@ int main() {
     data_tx[10]='l';
     data_tx[11]='l';
     data_tx[12]='o';
-    data_tx[13]='!';
+    data_tx[13]='!'; */
 
     while (true) {
 
