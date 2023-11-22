@@ -53,25 +53,9 @@ int main() {
     rs485Config.buffer_size_tx = sizeof(data_tx);
     rs485_init(&rs485Config);
     
-    uint8_t* str = "Hello World!";
+    uint8_t* str = "Hello World!\r\n";
+    // Using construct_packet_rs485 imply a strcpy, for efficient sending, we can also directly write in data_tx+8, len in data+0 timeout in data+4
     construct_packet_rs485(&rs485Config,str,strlen(str));
-/*     data_tx[0]=0x05; //size of the data - 1 : 6-1=5
-    data_tx[1]=0x00; 
-    data_tx[2]=0x00; 
-    data_tx[3]=0x00; 
-
-    data_tx[4]=0xff; //timeout
-    data_tx[5]=0xff; //timeout
-    data_tx[6]=0xff; //timeout
-    data_tx[7]=0xff; //timeout
-
-    data_tx[8]='H';
-    data_tx[9]='e'; 
-    data_tx[10]='l';
-    data_tx[11]='l';
-    data_tx[12]='o';
-    data_tx[13]='!'; */
-
     while (true) {
 
         printf("dataRX:");
