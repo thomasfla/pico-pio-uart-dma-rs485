@@ -13,7 +13,10 @@
 
 .program rs485
 .side_set 2 opt
-    pull block     side 0b11 [3] ; Read the first word, indicating the number of bytes to read +1 ; (oe=1 tx=1 )
+start:
+    nop            side 0b00 [3]
+    nop            side 0b11 [3]
+    pull  block    side 0b11 [3] ; Read the first word, indicating the number of bytes to read +1 ; (oe=1 tx=1 )
     mov x, osr                   ; Store it in "x"
     pull block                   ; Read the second word, indicating the delay to wait for a response frame
     mov isr, osr             [3] ; Store it in ISR temporarly 
@@ -34,14 +37,14 @@ waitforstart:
     jmp timeout 
 notimeout:
     jmp PIN waitforstart         ; sample and test start condition
-                                 ;  We have the start condition!
+                                 ; We have the start condition!
     set x, 10                [2] ; reset timeout value to detect the end of frame later (end of frame if no start bit for a short period of time)
     set y, 7                 [3] ; prepare the bitloop iterator
 rxbitloop:
     nop [2]
     in pins, 1                   ; Shift data bit into ISR
     jmp y-- rxbitloop        [3] ; Loop 8 times, each loop iteration is 8 cycles
-    push iffull                  ; send the byte to the fifo
+    push iffull   side 0b00        ; send the byte to the fifo
     jmp waitforstart             ; 
 timeout:
     ; flush in case some data are still in the FIFO (this happen if the received frame size is not a multiple of 4 (32bits word)
@@ -52,8 +55,8 @@ timeout:
     in NULL, 8
     push iffull ;in case 1 byte was left
 end:
-    nop
-    jmp end
+    jmp end      side 0b00 ; oe=0 tx=0 to see the timeout effect with an oscilloscope
+    jmp end      side 0b00
     ; TODO, generate an interupt to signal the end of transmission (and eventually reception). TODO find a way to indicate end is detected to the CPU, pass the size of the buffer to read?
     ; ideas: push a fix amount of data with zeros (max frame length and then push the size)
     ; or maybe go to an interupt and read the DMA pointer if we can be sure the dma can not be late. We could wait for the fifo to be empty in the state machine?

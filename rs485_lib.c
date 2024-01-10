@@ -1,6 +1,8 @@
 #include "rs485_lib.h"
 #include <stdio.h>
 #include <string.h>
+#include "pico/stdlib.h"
+#define pin_debug 12
 void rs485_init(RS485_Config *config) {
     // Initialize the RS485 module using the provided config
     // Set up pins, PIO program, DMA channels, etc. based on config values
@@ -10,7 +12,7 @@ void rs485_init(RS485_Config *config) {
     pio_gpio_init(config->pio, config->oe_pin);
     pio_gpio_init(config->pio, config->rx_pin);
     gpio_pull_up(config->rx_pin); // This is usefull if the RS485 tranceiver output is floating when OE is off (connecting OE and /IE together)
-    hw_set_bits(&config->pio->input_sync_bypass, 1u << config->rx_pin);
+    //hw_set_bits(&config->pio->input_sync_bypass, 1u << config->rx_pin);
     config->program_offset = pio_add_program(config->pio, &rs485_program);
     pio_sm_config c = rs485_program_get_default_config(config->program_offset);
     // OUT shifts to right, no autopull
@@ -29,7 +31,7 @@ void rs485_init(RS485_Config *config) {
     // SM transmits 1 bit per 8 execution cycles.
     float div = (float)clock_get_hz(clk_sys) / (8 * config->baud_rate);
     sm_config_set_clkdiv(&c, div);
-    pio_sm_init(config->pio, config->sm, config->program_offset, &c);
+    pio_sm_init(config->pio, config->sm, config->program_offset, &c); 
     pio_sm_set_enabled(config->pio, config->sm, true);
 
     // Initialize DMA TX
@@ -62,6 +64,12 @@ void rs485_init(RS485_Config *config) {
         false            // do not Start immediately
     );
 
+    channel_config_set_irq_quiet	(&cfg_rx,true);
+    channel_config_set_irq_quiet	(&cfg_tx,true);
+
+    channel_config_set_high_priority(&cfg_rx,true);
+    channel_config_set_high_priority(&cfg_tx,true);
+
 }
 void send_packet_rs485(RS485_Config *config) {
     uint32_t *ptr = (uint32_t *)config->data_tx;
@@ -71,17 +79,36 @@ void send_packet_rs485(RS485_Config *config) {
     // send the time timeout for a stop listening for a response frame (TODO give a formula for this value)
     //pio_sm_put_blocking(pio, sm, (uint32_t) (0xffff));
     //following is the frame data
-    dma_channel_abort(config->dma_channel_tx);
-    //Let's restart the SM
+    //pio_sm_exec_wait_blocking (config->pio, config->sm, pio_encode_jmp(config->program_offset+31)); //Force SM to be at the end
 
-    pio_sm_clear_fifos(config->pio, config->sm);  
-    pio_sm_restart(config->pio, config->sm);  
-    pio_sm_clear_fifos(config->pio, config->sm);
-    pio_sm_exec(config->pio, config->sm, pio_encode_jmp(config->program_offset));  
+    //pio_sm_set_enabled(config->pio, config->sm,false);
+
+    dma_channel_abort(config->dma_channel_tx);
     dma_channel_abort(config->dma_channel_rx);
+
+    pio_sm_exec_wait_blocking(config->pio, config->sm, pio_encode_jmp(config->program_offset)); //State machine set to waiting state
+
+    //gpio_put(pin_debug, 0);
     dma_channel_transfer_to_buffer_now(config->dma_channel_rx, config->data_rx, config->buffer_size_rx/4);
     dma_channel_transfer_from_buffer_now(config->dma_channel_tx, config->data_tx, 2+len/4+len%4);
-    printf("len:%d\r\n",len); 
+
+    //pio_sm_set_enabled(config->pio, config->sm,true);
+    //Manual transfer
+    /*
+    int j = 0;
+    int j_sup = 2+len/4+len%4;
+
+    for(j=0;j<j_sup;j++)
+    {
+        pio_sm_put_blocking(config->pio, config->sm, ptr[j]);
+        //printf("%x ",ptr[j]);
+    }    
+    //dma_channel_wait_for_finish_blocking(config->dma_channel_tx);
+    */
+    //pio_sm_exec(config->pio, config->sm, pio_encode_jmp(config->program_offset+1)); //Activate state machine
+
+    //sleep_ms(1);
+    
 }
 
 void construct_packet_rs485(RS485_Config *config, uint8_t* data, unsigned int length)
@@ -91,7 +118,8 @@ void construct_packet_rs485(RS485_Config *config, uint8_t* data, unsigned int le
         // 32-bit assignment using uint32_t
         uint32_t *ptr = (uint32_t *)config->data_tx;
         ptr[0]=length-1;   //Fill the length for PIO
-        ptr[1]=0xffffffff; //Fill the timeout
+        ptr[1]=1000; //Fill the timeout (Unit is quarter of bits period) at 12.5Mbauds it is 0.02us / LSB
         memcpy(config->data_tx+8,data,length);
     }
 }
+
