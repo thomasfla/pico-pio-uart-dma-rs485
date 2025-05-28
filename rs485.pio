@@ -46,6 +46,8 @@ rxbitloop:
     jmp y-- rxbitloop        [3] ; Loop 8 times, each loop iteration is 8 cycles
     push iffull   side 0b00        ; send the byte to the fifo
     jmp waitforstart             ; 
+
+
 timeout:
     ; flush in case some data are still in the FIFO (this happen if the received frame size is not a multiple of 4 (32bits word)
     in NULL, 8
@@ -54,9 +56,11 @@ timeout:
     push iffull ;in case 2 bytes were left
     in NULL, 8
     push iffull ;in case 1 byte was left
-end:
+    nop          side 0b00
+end:    
     jmp end      side 0b00 ; oe=0 tx=0 to see the timeout effect with an oscilloscope
-    jmp end      side 0b00
+
+
     ; TODO, generate an interupt to signal the end of transmission (and eventually reception). TODO find a way to indicate end is detected to the CPU, pass the size of the buffer to read?
     ; ideas: push a fix amount of data with zeros (max frame length and then push the size)
     ; or maybe go to an interupt and read the DMA pointer if we can be sure the dma can not be late. We could wait for the fifo to be empty in the state machine?

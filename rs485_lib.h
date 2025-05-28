@@ -10,6 +10,8 @@
 #define DEFAULT_PIN_RX 2
 #define DEFAULT_BAUD_RATE 12000000
 
+#define RS485_MAX_BUFFER 128
+
 typedef struct {
     PIO pio;                       // PIO instance
     uint sm;                       // State machine index
@@ -20,12 +22,36 @@ typedef struct {
     uint rx_pin;                   // GPIO pin for RX
     uint baud_rate;                // Baud rate for communication
     uint program_offset;           // Offset of the PIO program
-    uint8_t *data_rx;              // Receive buffer
-    uint8_t *data_tx;              // Transmit buffer
-    size_t buffer_size_rx;         // Size of RX buffer
-    size_t buffer_size_tx;         // Size of TX buffer
+    uint8_t tx_buffer[RS485_MAX_BUFFER];
+    uint8_t rx_buffer[RS485_MAX_BUFFER];
 
 } RS485_Config;
-void rs485_init(RS485_Config *config);
-void send_packet_rs485(RS485_Config *config);
-void construct_packet_rs485(RS485_Config *config, uint8_t* payload, unsigned int length);
+
+void rs485_init(RS485_Config *config, RS485_Config *existing_config);
+
+void rs485_send_packet(RS485_Config *config);
+
+bool rs485_prepare_tx_packet(RS485_Config *config, uint8_t* payload, unsigned int length);
+
+static inline bool rs485_response_ready(RS485_Config *config) {
+    return pio_sm_get_pc(config->pio, config->sm) == (config->program_offset + 31);
+}
+
+static inline int rs485_wait_for_response(RS485_Config *config) {
+    while (!rs485_response_ready(config)) {
+        tight_loop_contents();
+    }
+    uint words_remaining = dma_channel_hw_addr(config->dma_channel_rx)->transfer_count;
+    return sizeof(config->rx_buffer) - (words_remaining * 4);
+}
+
+static inline bool rs485_tx_done(RS485_Config *config) {
+    return pio_sm_get_pc(config->pio, config->sm) >= (config->program_offset + 13);
+}
+
+
+static inline void rs485_wait_tx_done(RS485_Config *config) {
+    while (!rs485_tx_done(config)) {
+        tight_loop_contents();
+    }
+}
