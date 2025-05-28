@@ -8747,7 +8747,7 @@
 			(justify left bottom)
 		)
 	)
-	(gr_text " A B "
+	(gr_text " B A "
 		(at 59.5 74 90)
 		(layer "F.SilkS" knockout)
 		(uuid "5b8f851f-0b97-4c15-a231-fe38e45132e6")
