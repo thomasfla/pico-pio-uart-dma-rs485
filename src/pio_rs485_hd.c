@@ -80,41 +80,15 @@ void rs485_init(RS485_Config *config, RS485_Config *existing_config){
 void rs485_send_packet(RS485_Config *config) {
     uint32_t *ptr = (uint32_t *)config->tx_buffer;
     int len = ptr[0]+1;  
-    // send the length of transfer to the PIO
-    //pio_sm_put_blocking(pio, sm, (uint32_t) (length -1));
-    // send the time timeout for a stop listening for a response frame (TODO give a formula for this value)
-    //pio_sm_put_blocking(pio, sm, (uint32_t) (0xffff));
-    //following is the frame data
-    //pio_sm_exec_wait_blocking (config->pio, config->sm, pio_encode_jmp(config->program_offset+31)); //Force SM to be at the end
-
-    //pio_sm_set_enabled(config->pio, config->sm,false);
 
     dma_channel_abort(config->dma_channel_tx);
     dma_channel_abort(config->dma_channel_rx);
 
     pio_sm_exec_wait_blocking(config->pio, config->sm, pio_encode_jmp(config->program_offset)); //State machine set to waiting state
 
-    //gpio_put(pin_debug, 0);
     dma_channel_transfer_to_buffer_now(config->dma_channel_rx, config->rx_buffer, sizeof(config->rx_buffer)/4);
-    dma_channel_transfer_from_buffer_now(config->dma_channel_tx, config->tx_buffer, 2 + (len + 3) / 4);//2+len/4+len%4);
+    dma_channel_transfer_from_buffer_now(config->dma_channel_tx, config->tx_buffer, 2 + (len + 3) / 4);
 
-    //pio_sm_set_enabled(config->pio, config->sm,true);
-    //Manual transfer
-    /*
-    int j = 0;
-    int j_sup = 2+len/4+len%4;
-
-    for(j=0;j<j_sup;j++)
-    {
-        pio_sm_put_blocking(config->pio, config->sm, ptr[j]);
-        //printf("%x ",ptr[j]);
-    }    
-    //dma_channel_wait_for_finish_blocking(config->dma_channel_tx);
-    */
-    //pio_sm_exec(config->pio, config->sm, pio_encode_jmp(config->program_offset+1)); //Activate state machine
-
-    //sleep_ms(1);
-    
 }
 
 bool rs485_prepare_tx_packet(RS485_Config *config, uint8_t* data, unsigned int length)
