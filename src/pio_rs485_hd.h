@@ -2,7 +2,7 @@
 
 #include "hardware/pio.h"
 #include "hardware/dma.h"
-#include "rs485.pio.h"
+#include "pio_rs485_hd.pio.h"
 #include "hardware/clocks.h"
 // Define your default configuration here
 #define DEFAULT_PIN_TX 0
