@@ -31,7 +31,7 @@ void rs485_init(RS485_Config *config, RS485_Config *existing_config);
 
 void rs485_send_packet(RS485_Config *config);
 
-bool rs485_prepare_tx_packet(RS485_Config *config, uint8_t* payload, unsigned int length);
+bool rs485_prepare_tx_packet(RS485_Config *config, uint8_t* payload, unsigned int length, unsigned int timeout);
 
 static inline bool rs485_response_ready(RS485_Config *config) {
     return pio_sm_get_pc(config->pio, config->sm) == (config->program_offset + 31);

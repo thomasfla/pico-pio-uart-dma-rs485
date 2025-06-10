@@ -62,8 +62,8 @@ int main() {
     uint8_t data2[30] = {0};
     for(int i =0; i< sizeof(data2);i++)  data2[i]=i+1;
     while (true) {
-        rs485_prepare_tx_packet(&rs485Config0,data1,sizeof(data1));
-        rs485_prepare_tx_packet(&rs485Config1,data2,sizeof(data2));
+        rs485_prepare_tx_packet(&rs485Config0,data1,sizeof(data1), 1000);
+        rs485_prepare_tx_packet(&rs485Config1,data2,sizeof(data2), 1000);
         rs485_send_packet(&rs485Config0);
         rs485_wait_tx_done(&rs485Config0); //Wait TX is done
         //sleep_us(2);

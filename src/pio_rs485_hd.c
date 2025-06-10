@@ -90,15 +90,21 @@ void rs485_send_packet(RS485_Config *config) {
     dma_channel_transfer_from_buffer_now(config->dma_channel_tx, config->tx_buffer, 2 + (len + 3) / 4);
 
 }
-
-bool rs485_prepare_tx_packet(RS485_Config *config, uint8_t* data, unsigned int length)
+/*Prepare a packet for transmission.
+Arguments:
+config: Pointer to RS485_Config structure.
+data: Pointer to the data to be sent.
+length: Length of the data to be sent.
+timeout: Timeout for the transmission in quarter of bits period (related to the baudrate).
+*/
+bool rs485_prepare_tx_packet(RS485_Config *config, uint8_t* data, unsigned int length, unsigned int timeout)
 {
     if ((length + 8 < sizeof(config->tx_buffer)) && (length >= 1))
     {
         // 32-bit assignment using uint32_t
         uint32_t *ptr = (uint32_t *)config->tx_buffer;
         ptr[0]=length-1;   //Fill the length for PIO
-        ptr[1]=1000; //Fill the timeout (Unit is quarter of bits period) at 12.5Mbauds it is 0.02us / LSB
+        ptr[1]=timeout; //Fill the timeout (Unit is quarter of bits period) at 12.5Mbauds it is 0.02us / LSB
         memcpy(config->tx_buffer+8,data,length);
         return true;
     }
