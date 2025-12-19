@@ -1,5 +1,6 @@
 add_executable(rs485_example
-    main.c
+    #main.c
+    main2.c
 )
 
 target_link_libraries(rs485_example

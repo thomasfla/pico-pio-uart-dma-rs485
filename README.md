@@ -11,6 +11,16 @@ This was inteded for low latency comunication with robotics actuator and sensors
 - End-of-frame detection based on silence (similar to Modbus).
 - Fully offloaded TX and RX: the CPU is not involved during transmission and reception of complete frames and responses.
 
+## Arduino Library
+
+An Arduino-friendly packaging of this driver lives in `arduino/PicoPioRs485/`. Copy that folder into your Arduino `libraries` directory (or use **Sketch → Include Library → Add .ZIP Library…** from the IDE). The library exposes the `RS485_Config`/`rs485_*` helpers as well as a small `PicoPioRs485` C++ class so sketches can `begin()`, queue a packet, send it, and wait for the optional response.
+
+Bundled examples:
+
+- `LoopbackMinimal`: drives two PIO state machines on the same Pico so you can quickly wire a master/responder pair and watch the returned bytes over USB serial.
+- `BaudRateSwitch`: shows how to retune the RS485 link speed interactively from the serial monitor.
+
+Both sketches are intentionally smaller and simpler than the original `examples/basic/main*.c` demos so you can focus on the Arduino APIs.
 
 
 ## Building

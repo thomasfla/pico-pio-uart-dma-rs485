@@ -29,6 +29,8 @@ typedef struct {
 
 void rs485_init(RS485_Config *config, RS485_Config *existing_config);
 
+void rs485_set_baudrate(RS485_Config *config, uint32_t baudrate);
+
 void rs485_send_packet(RS485_Config *config);
 
 bool rs485_prepare_tx_packet(RS485_Config *config, uint8_t* payload, unsigned int length, unsigned int timeout);

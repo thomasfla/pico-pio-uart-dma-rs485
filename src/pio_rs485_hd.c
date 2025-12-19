@@ -77,6 +77,12 @@ void rs485_init(RS485_Config *config, RS485_Config *existing_config){
     channel_config_set_high_priority(&cfg_tx,true);
 
 }
+void rs485_set_baudrate(RS485_Config *config, uint32_t baudrate) {
+    config->baud_rate = baudrate;
+    float div = (float)clock_get_hz(clk_sys) / (8 * baudrate); // 8 is your cycles/bit, adjust if needed
+    pio_sm_set_clkdiv(config->pio, config->sm, div);
+}
+
 void rs485_send_packet(RS485_Config *config) {
     uint32_t *ptr = (uint32_t *)config->tx_buffer;
     int len = ptr[0]+1;  

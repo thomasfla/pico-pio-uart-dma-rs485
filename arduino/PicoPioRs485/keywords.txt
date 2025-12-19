@@ -1,0 +1,7 @@
+PicoPioRs485	KEYWORD1
+RS485_Config	KEYWORD2
+rs485_init	KEYWORD2
+rs485_set_baudrate	KEYWORD2
+rs485_prepare_tx_packet	KEYWORD2
+rs485_send_packet	KEYWORD2
+rs485_wait_for_response	KEYWORD2
